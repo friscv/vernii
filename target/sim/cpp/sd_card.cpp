@@ -76,6 +76,10 @@ void SdCard::set_miso_delay(unsigned cycles) {
     pipe_.assign(delay_, true);
 }
 
+void SdCard::set_response_delay(unsigned bytes) {
+    response_delay_ = std::clamp(bytes, MIN_RESPONSE_DELAY, MAX_RESPONSE_DELAY);
+}
+
 bool SdCard::miso() const {
     return delay_ == 0 ? miso_raw_ : pipe_.front();
 }
@@ -152,7 +156,7 @@ void SdCard::finish_byte() {
 }
 
 void SdCard::respond(const std::vector<uint8_t>& bytes) {
-    for (unsigned i = 0; i < RESPONSE_DELAY_BYTES; ++i) {
+    for (unsigned i = 0; i < response_delay_; ++i) {
         out_queue_.push_back(0xff);
     }
 

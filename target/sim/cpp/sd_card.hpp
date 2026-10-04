@@ -26,6 +26,9 @@ class SdCard {
     // Launch edge to pin, in core clocks
     void set_miso_delay(unsigned cycles);
 
+    // Bytes between a command and its response, N_CR in the spec
+    void set_response_delay(unsigned bytes);
+
     bool driving() const { return selected_; }
     bool miso() const;
 
@@ -37,8 +40,9 @@ class SdCard {
 
     // Only counted while CS is high
     static constexpr unsigned REQUIRED_INIT_CLOCKS = 74;
-    // N_CR in the spec
-    static constexpr unsigned RESPONSE_DELAY_BYTES = 2;
+    // N_CR is 1 to 8 bytes in SPI mode, real cards often answer after one
+    static constexpr unsigned MIN_RESPONSE_DELAY = 1;
+    static constexpr unsigned MAX_RESPONSE_DELAY = 8;
     // Busy bytes before the data token
     static constexpr unsigned READ_ACCESS_BYTES = 3;
 
@@ -77,5 +81,6 @@ class SdCard {
 
     bool miso_raw_ = true;
     unsigned delay_ = 0;
+    unsigned response_delay_ = MIN_RESPONSE_DELAY;
     std::deque<bool> pipe_;
 };

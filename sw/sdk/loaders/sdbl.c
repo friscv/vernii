@@ -36,6 +36,8 @@
 #define CLKDIV_SLOW 63u
 #define CLKDIV_FAST 1u
 
+#define CONFIGOPTS_FAST (QSPI_CONFIGOPTS_FULLCYC_BM | CLKDIV_FAST)
+
 #ifndef LLC_WAYS
 #define LLC_WAYS 0xf
 #endif
@@ -115,24 +117,44 @@ static void spi_release(void) {
     spi_read_byte(&discard, 0);
 }
 
+typedef struct {
+    uint8_t  bytes[2];
+    unsigned next;
+} sd_early_t;
+
 // Two filler bytes keep transfers word aligned
-static int sd_send_command(uint8_t command, uint32_t argument, uint8_t crc) {
+static int sd_send_command(sd_early_t* early, uint8_t command, uint32_t argument, uint8_t crc) {
     uint32_t low = (uint32_t)(0x40 | command) | ((argument >> 24) & 0xff) << 8 |
                    ((argument >> 16) & 0xff) << 16 | ((argument >> 8) & 0xff) << 24;
     uint32_t high = (argument & 0xff) | (uint32_t)crc << 8 | 0xffu << 16 | 0xffu << 24;
+    uint32_t echo;
 
-    if (!spi_put_word(low) || !spi_put_word(high)) {
+    if (!spi_put_word(low) || !spi_put_word(high) ||
+        !spi_command(8, 1, QSPI_COMMAND_DIRECTION_BIDIR) ||
+        !spi_get_word(&echo) || !spi_get_word(&echo)) {
         return 0;
     }
 
-    return spi_command(8, 1, QSPI_COMMAND_DIRECTION_TX);
+    early->bytes[0] = (uint8_t)(echo >> 16);
+    early->bytes[1] = (uint8_t)(echo >> 24);
+    early->next = 0;
+    return 1;
 }
 
-static int sd_response(uint8_t* r1) {
+static int sd_read_byte(sd_early_t* early, uint8_t* out) {
+    if (early->next < sizeof(early->bytes)) {
+        *out = early->bytes[early->next++];
+        return 1;
+    }
+
+    return spi_read_byte(out, 1);
+}
+
+static int sd_response(sd_early_t* early, uint8_t* r1) {
     for (int attempt = 0; attempt < 32; attempt++) {
         uint8_t value;
 
-        if (!spi_read_byte(&value, 1)) {
+        if (!sd_read_byte(early, &value)) {
             return 0;
         }
 
@@ -161,10 +183,11 @@ static int sd_init(void) {
     spi_wait_idle();
     WRITE_REG(QSPI0->CSID, CS_CARD);
 
+    sd_early_t early;
     uint8_t r1;
 
     // Only CMD0 and CMD8 need real CRCs
-    if (!sd_send_command(0, 0, 0x95) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 0, 0, 0x95) || !sd_response(&early, &r1)) {
         return 0;
     }
 
@@ -174,14 +197,14 @@ static int sd_init(void) {
         return 0;
     }
 
-    if (!sd_send_command(8, 0x1aa, 0x87) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 8, 0x1aa, 0x87) || !sd_response(&early, &r1)) {
         return 0;
     }
 
     uint8_t r7[4];
 
     for (int i = 0; i < 4; i++) {
-        if (!spi_read_byte(&r7[i], 1)) {
+        if (!sd_read_byte(&early, &r7[i])) {
             return 0;
         }
     }
@@ -194,20 +217,20 @@ static int sd_init(void) {
 
     // ACMD41 until the card leaves idle
     for (int attempt = 0; attempt < 1024; attempt++) {
-        if (!sd_send_command(55, 0, 0x01) || !sd_response(&r1)) {
+        if (!sd_send_command(&early, 55, 0, 0x01) || !sd_response(&early, &r1)) {
             return 0;
         }
 
         spi_release();
 
-        if (!sd_send_command(41, 0x40000000, 0x01) || !sd_response(&r1)) {
+        if (!sd_send_command(&early, 41, 0x40000000, 0x01) || !sd_response(&early, &r1)) {
             return 0;
         }
 
         spi_release();
 
         if (r1 == 0x00) {
-            WRITE_REG(QSPI0->CONFIGOPTS[CS_CARD], CLKDIV_FAST);
+            WRITE_REG(QSPI0->CONFIGOPTS[CS_CARD], CONFIGOPTS_FAST);
             return 1;
         }
 
@@ -221,9 +244,10 @@ static int sd_init(void) {
 
 // SDHC is block addressed, not byte
 static int sd_read_block(uint32_t block, uint32_t* words) {
+    sd_early_t early;
     uint8_t r1;
 
-    if (!sd_send_command(17, block, 0x01) || !sd_response(&r1) || r1 != 0x00) {
+    if (!sd_send_command(&early, 17, block, 0x01) || !sd_response(&early, &r1) || r1 != 0x00) {
         return 0;
     }
 
@@ -233,7 +257,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
     for (int attempt = 0; attempt < 1024 && !found; attempt++) {
         uint8_t value;
 
-        if (!spi_read_byte(&value, 1)) {
+        if (!sd_read_byte(&early, &value)) {
             return 0;
         }
 

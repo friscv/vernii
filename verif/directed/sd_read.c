@@ -31,6 +31,7 @@
 #define DIR_DUMMY 0u
 #define DIR_RD    1u
 #define DIR_WR    2u
+#define DIR_BIDIR 3u
 
 #define CS_CARD  1u
 #define CS_SPARE 2u
@@ -104,24 +105,44 @@ static int spi_read_byte(uint8_t* out, unsigned csaat) {
     return 1;
 }
 
+// A card may answer one byte after the command
+typedef struct {
+    uint8_t  bytes[2];
+    unsigned next;
+} sd_early_t;
+
 // Two filler bytes keep transfers word aligned
-static int sd_send_command(uint8_t command, uint32_t argument, uint8_t crc) {
+static int sd_send_command(sd_early_t* early, uint8_t command, uint32_t argument, uint8_t crc) {
     uint32_t low = (uint32_t)(0x40 | command) | ((argument >> 24) & 0xff) << 8 |
                    ((argument >> 16) & 0xff) << 16 | ((argument >> 8) & 0xff) << 24;
     uint32_t high = (argument & 0xff) | (uint32_t)crc << 8 | 0xffu << 16 | 0xffu << 24;
+    uint32_t echo;
 
-    if (!spi_put_word(low) || !spi_put_word(high)) {
+    if (!spi_put_word(low) || !spi_put_word(high) || !spi_command(8, 1, DIR_BIDIR) ||
+        !spi_get_word(&echo) || !spi_get_word(&echo)) {
         return 0;
     }
 
-    return spi_command(8, 1, DIR_WR);
+    early->bytes[0] = (uint8_t)(echo >> 16);
+    early->bytes[1] = (uint8_t)(echo >> 24);
+    early->next = 0;
+    return 1;
 }
 
-static int sd_response(uint8_t* r1) {
+static int sd_read_byte(sd_early_t* early, uint8_t* out) {
+    if (early->next < sizeof(early->bytes)) {
+        *out = early->bytes[early->next++];
+        return 1;
+    }
+
+    return spi_read_byte(out, 1);
+}
+
+static int sd_response(sd_early_t* early, uint8_t* r1) {
     for (int attempt = 0; attempt < 32; attempt++) {
         uint8_t value;
 
-        if (!spi_read_byte(&value, 1)) {
+        if (!sd_read_byte(early, &value)) {
             return 0;
         }
 
@@ -177,10 +198,11 @@ static int sd_init(void) {
 
     wr(SPI_CSID, CS_CARD);
 
+    sd_early_t early;
     uint8_t r1;
 
     // Only CMD0 and CMD8 need real CRCs
-    if (!sd_send_command(0, 0, 0x95) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 0, 0, 0x95) || !sd_response(&early, &r1)) {
         return ERR_CMD0;
     }
 
@@ -191,14 +213,14 @@ static int sd_init(void) {
     }
 
     // Only a v2 card echoes the pattern
-    if (!sd_send_command(8, 0x1aa, 0x87) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 8, 0x1aa, 0x87) || !sd_response(&early, &r1)) {
         return ERR_CMD8;
     }
 
     uint8_t r7[4];
 
     for (int i = 0; i < 4; i++) {
-        if (!spi_read_byte(&r7[i], 1)) {
+        if (!sd_read_byte(&early, &r7[i])) {
             return ERR_CMD8;
         }
     }
@@ -213,13 +235,13 @@ static int sd_init(void) {
     int ready = 0;
 
     for (int attempt = 0; attempt < 32 && !ready; attempt++) {
-        if (!sd_send_command(55, 0, 0x01) || !sd_response(&r1)) {
+        if (!sd_send_command(&early, 55, 0, 0x01) || !sd_response(&early, &r1)) {
             return ERR_ACMD41;
         }
 
         spi_release();
 
-        if (!sd_send_command(41, 0x40000000, 0x01) || !sd_response(&r1)) {
+        if (!sd_send_command(&early, 41, 0x40000000, 0x01) || !sd_response(&early, &r1)) {
             return ERR_ACMD41;
         }
 
@@ -237,14 +259,14 @@ static int sd_init(void) {
     }
 
     // CCS set, so addresses are blocks
-    if (!sd_send_command(58, 0, 0x01) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 58, 0, 0x01) || !sd_response(&early, &r1)) {
         return ERR_CMD58;
     }
 
     uint8_t ocr[4];
 
     for (int i = 0; i < 4; i++) {
-        if (!spi_read_byte(&ocr[i], 1)) {
+        if (!sd_read_byte(&early, &ocr[i])) {
             return ERR_CMD58;
         }
     }
@@ -255,7 +277,7 @@ static int sd_init(void) {
         return ERR_CMD58;
     }
 
-    if (!sd_send_command(16, BLOCK_BYTES, 0x01) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 16, BLOCK_BYTES, 0x01) || !sd_response(&early, &r1)) {
         return ERR_CMD16;
     }
 
@@ -271,9 +293,10 @@ static int sd_init(void) {
 }
 
 static int sd_read_block(uint32_t block, uint32_t* words) {
+    sd_early_t early;
     uint8_t r1;
 
-    if (!sd_send_command(17, block, 0x01) || !sd_response(&r1)) {
+    if (!sd_send_command(&early, 17, block, 0x01) || !sd_response(&early, &r1)) {
         return ERR_CMD17;
     }
 
@@ -287,7 +310,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
     for (int attempt = 0; attempt < 64 && !found; attempt++) {
         uint8_t value;
 
-        if (!spi_read_byte(&value, 1)) {
+        if (!sd_read_byte(&early, &value)) {
             return ERR_TOKEN;
         }
 

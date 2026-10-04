@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-04
+
+### Fixed
+
+- `sdbl.c` and the `sd_read` test lost a response that started during the two filler bytes after a command, so a card answering after one byte never initialised. Commands now go out bidirectionally and those bytes are read first.
+
+### Changed
+
+- `sdbl.c` reads the card at 12.5 MHz with full-cycle sampling.
+- The SD card model answers one byte after a command by default.
+
 ## [1.0.1] - 2026-09-26
 
 ### Changed
