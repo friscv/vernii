@@ -7,6 +7,10 @@
 
 #include <stdint.h>
 
+#ifndef SD_PATTERN
+#define SD_PATTERN 1
+#endif
+
 #define SCB_SCRATCH 0x03000000u
 #define HALT        0x50000000u
 #define PASS        0xaabbccddu
@@ -38,7 +42,13 @@
 
 // SCK = core clock / (2 * (clkdiv + 1))
 #define CLKDIV_SLOW 63u
+#ifndef CLKDIV_FAST
 #define CLKDIV_FAST 1u
+#endif
+
+// Sampling a full cycle after the edge
+#define CONFIGOPTS_FULLCYC (1u << 29)
+#define CONFIGOPTS_FAST    (CONFIGOPTS_FULLCYC | CLKDIV_FAST)
 
 #define BLOCK_BYTES 512u
 #define BLOCK_WORDS (BLOCK_BYTES / 4)
@@ -178,6 +188,50 @@ static uint8_t pattern_byte(uint32_t block, unsigned offset) {
     return (uint8_t)(block * 31u + offset * 7u + 0x5au);
 }
 
+static void sd_stop(void) {
+    sd_early_t early;
+    unsigned idle = 0;
+
+    if (!sd_send_command(&early, 12, 0, 0x61)) {
+        return;
+    }
+
+    for (unsigned i = 0; i < 1024 && idle < 8; i++) {
+        uint8_t value;
+
+        if (!sd_read_byte(&early, &value)) {
+            break;
+        }
+
+        idle = (value == 0xff) ? idle + 1 : 0;
+    }
+
+    spi_release();
+}
+
+static int sd_go_idle(void) {
+    for (int attempt = 0; attempt < 4; attempt++) {
+        sd_early_t early;
+        uint8_t r1 = 0xff;
+
+        // Only CMD0 and CMD8 need real CRCs
+        if (!sd_send_command(&early, 0, 0, 0x95)) {
+            return 0;
+        }
+
+        int answered = sd_response(&early, &r1);
+        spi_release();
+
+        if (answered && r1 == 0x01) {
+            return 1;
+        }
+
+        sd_stop();
+    }
+
+    return 0;
+}
+
 static int sd_init(void) {
     wr(SPI_CONTROL, CTRL_SPIEN | CTRL_OUTPUT_EN);
     wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_SLOW);
@@ -198,19 +252,12 @@ static int sd_init(void) {
 
     wr(SPI_CSID, CS_CARD);
 
+    if (!sd_go_idle()) {
+        return ERR_CMD0;
+    }
+
     sd_early_t early;
     uint8_t r1;
-
-    // Only CMD0 and CMD8 need real CRCs
-    if (!sd_send_command(&early, 0, 0, 0x95) || !sd_response(&early, &r1)) {
-        return ERR_CMD0;
-    }
-
-    spi_release();
-
-    if (r1 != 0x01) {
-        return ERR_CMD0;
-    }
 
     // Only a v2 card echoes the pattern
     if (!sd_send_command(&early, 8, 0x1aa, 0x87) || !sd_response(&early, &r1)) {
@@ -288,7 +335,7 @@ static int sd_init(void) {
     }
 
     // Initialised, so speed up the bus
-    wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_FAST);
+    wr(SPI_CONFIGOPTS + 4 * CS_CARD, CONFIGOPTS_FAST);
     return ERR_NONE;
 }
 
@@ -307,7 +354,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
     // The card leads the block with 0xfe
     int found = 0;
 
-    for (int attempt = 0; attempt < 64 && !found; attempt++) {
+    for (int attempt = 0; attempt < 1024 && !found; attempt++) {
         uint8_t value;
 
         if (!sd_read_byte(&early, &value)) {
@@ -379,11 +426,13 @@ void sd_main(void) {
             finish(0xf0000000u | (uint32_t)error);
         }
 
-        const uint8_t* bytes = (const uint8_t*)words;
+        if (SD_PATTERN) {
+            const uint8_t* bytes = (const uint8_t*)words;
 
-        for (unsigned i = 0; i < BLOCK_BYTES; i++) {
-            if (bytes[i] != pattern_byte(block, i)) {
-                finish(0xf0000000u | ERR_DATA);
+            for (unsigned i = 0; i < BLOCK_BYTES; i++) {
+                if (bytes[i] != pattern_byte(block, i)) {
+                    finish(0xf0000000u | ERR_DATA);
+                }
             }
         }
     }

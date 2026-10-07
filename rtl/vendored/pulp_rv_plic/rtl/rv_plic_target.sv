@@ -47,16 +47,16 @@ if (ALGORITHM == "SEQUENTIAL") begin : gen_sequential
   // Let first implementation be brute-force
   // As N_SOURCE increasing logic depth increases O(logN)
   // This approach slows down the simulation.
-  logic [PRIOW-1:0] max_prio;
+  logic [PRIOW:0] max_prio;
   logic irq_next;
   logic [SRCW-1:0] irq_id_next;
   always_comb begin
-    max_prio = threshold + 1'b1; // Priority strictly greater than threshold
+    max_prio = {1'b0, threshold} + 1'b1; // Priority strictly greater than threshold
     irq_id_next = '0; // default: No Interrupt
     irq_next = 1'b0;
     for (int i = N_SOURCE-1 ; i >= 0 ; i--) begin
-      if ((ip[i] & ie[i]) == 1'b1 && prio[i] >= max_prio) begin
-        max_prio = prio[i];
+      if ((ip[i] & ie[i]) == 1'b1 && {1'b0, prio[i]} >= max_prio) begin
+        max_prio = {1'b0, prio[i]};
         irq_id_next = SRCW'(i+1);
         irq_next = 1'b1;
       end

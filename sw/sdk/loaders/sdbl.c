@@ -167,6 +167,50 @@ static int sd_response(sd_early_t* early, uint8_t* r1) {
     return 0;
 }
 
+static void sd_stop(void) {
+    sd_early_t early;
+    unsigned idle = 0;
+
+    if (!sd_send_command(&early, 12, 0, 0x61)) {
+        return;
+    }
+
+    for (unsigned i = 0; i < 1024 && idle < 8; i++) {
+        uint8_t value;
+
+        if (!sd_read_byte(&early, &value)) {
+            break;
+        }
+
+        idle = (value == 0xff) ? idle + 1 : 0;
+    }
+
+    spi_release();
+}
+
+static int sd_go_idle(void) {
+    for (int attempt = 0; attempt < 4; attempt++) {
+        sd_early_t early;
+        uint8_t r1 = 0xff;
+
+        // Only CMD0 and CMD8 need real CRCs
+        if (!sd_send_command(&early, 0, 0, 0x95)) {
+            return 0;
+        }
+
+        int answered = sd_response(&early, &r1);
+        spi_release();
+
+        if (answered && r1 == 0x01) {
+            return 1;
+        }
+
+        sd_stop();
+    }
+
+    return 0;
+}
+
 static int sd_init(void) {
     WRITE_REG(QSPI0->CONTROL, QSPI_CONTROL_SPIEN_BM | QSPI_CONTROL_OUTPUT_EN_BM);
     WRITE_REG(QSPI0->CONFIGOPTS[CS_CARD], CLKDIV_SLOW);
@@ -183,19 +227,12 @@ static int sd_init(void) {
     spi_wait_idle();
     WRITE_REG(QSPI0->CSID, CS_CARD);
 
+    if (!sd_go_idle()) {
+        return 0;
+    }
+
     sd_early_t early;
     uint8_t r1;
-
-    // Only CMD0 and CMD8 need real CRCs
-    if (!sd_send_command(&early, 0, 0, 0x95) || !sd_response(&early, &r1)) {
-        return 0;
-    }
-
-    spi_release();
-
-    if (r1 != 0x01) {
-        return 0;
-    }
 
     if (!sd_send_command(&early, 8, 0x1aa, 0x87) || !sd_response(&early, &r1)) {
         return 0;

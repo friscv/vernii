@@ -40,8 +40,8 @@ packages:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
   friscv:
-    revision: 8a0d03f1434eb814c48ac9ddc335a10a58b845d3
-    version: 3.0.0
+    revision: 42bd4ede14e3303b13ae36835e25e564f44e4dc8
+    version: 3.0.1
     source:
       Git: https://github.com/friscv/friscv.git
     dependencies:

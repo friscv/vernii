@@ -4,8 +4,6 @@ Date: Mon, 13 Jul 2026 14:20:56 +0200
 Subject: [PATCH 1/2] Rename gateway/target modules to avoid collision with
  opentitan_peripherals
 
-opentitan_peripherals ships its own rv_plic_gateway/rv_plic_target with
-incompatible ports; both packages end up in the same Bender flist.
 ---
  rtl/plic_top.sv        | 4 ++--
  rtl/rv_plic_gateway.sv | 4 +++-

@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
+Date: Wed, 7 Oct 2026 12:00:00 +0200
+Subject: [PATCH] Fix the TX stop bit count being inverted
+
+---
+diff --git a/obi_uart_tx.sv b/obi_uart_tx.sv
+index f3856ac..c885964 100644
+--- a/obi_uart_tx.sv
++++ b/obi_uart_tx.sv
+@@ -216,7 +216,7 @@ module obi_uart_tx #()
+ 
+       TXSTOP1: begin
+         txd_d = 1'b1;
+-        if (reg_read_i.lcr.stop_bits) begin
++        if (!reg_read_i.lcr.stop_bits) begin
+           // next transaction starts on next baud_rate_edge_i
+           state_d = TXIDLE;
+         end else if (baud_rate_edge_i) begin
+-- 
+2.43.0

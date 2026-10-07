@@ -11,8 +11,8 @@
 // Generated from zsbl.S, do not edit
 package vernii_zsbl_rom_pkg;
 
-    localparam int unsigned ZSBL_PROG_WORDS = 59;
-    localparam logic [31:0] ZSBL_PROG [59] = '{
+    localparam int unsigned ZSBL_PROG_WORDS = 61;
+    localparam logic [31:0] ZSBL_PROG [61] = '{
         32'h030002b7,
         32'h00000317,
         32'h02830313,
@@ -47,8 +47,10 @@ package vernii_zsbl_rom_pkg;
         32'h00750023,
         32'h00150513,
         32'hfec564e3,
-        32'h05c0006f,
+        32'h0640006f,
         32'h030202b7,
+        32'h20000337,
+        32'h00130313,
         32'h0062ac23,
         32'ha0000337,
         32'h0062a823,

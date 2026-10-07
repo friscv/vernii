@@ -3,14 +3,6 @@ From: Emil Popovic <mail@emilpopovic.me>
 Date: Wed, 12 Aug 2026 14:30:00 +0200
 Subject: [PATCH] Give character_length a default so it does not infer a latch
 
-character_length is assigned only inside the `if (reg_read_i.fcr.fifo_en)`
-branch of the RX always_comb, unlike tl_characters and timeout_level which
-are defaulted with the rest of the block. It holds its value when the FIFO
-is disabled, so synthesis infers a latch and Yosys reports a combinational
-loop through it.
-
-The value is only read inside the same branch that assigns it, so the
-behaviour is already correct; this only removes the latch.
 ---
  obi_uart_rx.sv | 1 +
  1 file changed, 1 insertion(+)

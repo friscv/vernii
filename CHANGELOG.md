@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-07
+
+### Fixed
+
+- Fix PLIC threshold overflow.
+- Fix `obi_uart` stop bit bug.
+- SD simulation behaves more like real cards.
+
+### Changed
+
+- The boot ROM reads the flash with full-cycle sampling.
+
 ## [1.0.2] - 2026-10-04
 
 ### Fixed

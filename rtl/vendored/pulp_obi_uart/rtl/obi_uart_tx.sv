@@ -216,7 +216,7 @@ module obi_uart_tx #()
 
       TXSTOP1: begin
         txd_d = 1'b1;
-        if (reg_read_i.lcr.stop_bits) begin
+        if (!reg_read_i.lcr.stop_bits) begin
           // next transaction starts on next baud_rate_edge_i
           state_d = TXIDLE;
         end else if (baud_rate_edge_i) begin

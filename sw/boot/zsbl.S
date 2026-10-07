@@ -24,6 +24,7 @@
 .equ SPI_COMMAND,  0x28
 .equ SPI_RXDATA,   0x2c
 .equ SPI_TXDATA,   0x30
+.equ SPI_OPTS,     (1 << 29) | 1  # helps on systems with bad SPI signal integrity
 .equ UART_RBR,     0x00
 .equ UART_DLL,     0x00
 .equ UART_LCR,     0x0c
@@ -45,7 +46,7 @@ _start:
     li a2, STAGE_BYTES
     andi t2, t1, 2
     bnez t2, uart
-    andi t1, t1, 1               # t1 = 1, the CLKDIV qspi writes
+    andi t1, t1, 1
     bnez t1, qspi
 
 # Also the trap handler, assumes nothing
@@ -81,7 +82,8 @@ uart:
 qspi:
     # The QSPI pads are dedicated, there is nothing to mux
     lui t0, (QSPI_BASE >> 12)
-    sw t1, SPI_CONFIGOPTS(t0)    # CLKDIV=1: SCK = core clock / 4
+    li t1, SPI_OPTS
+    sw t1, SPI_CONFIGOPTS(t0)
     lui t1, 0xa0000              # SPIEN | OUTPUT_EN
     sw t1, SPI_CONTROL(t0)
 4:  slli a3, a0, 8               # 0x03 read from a0, address byte swapped
