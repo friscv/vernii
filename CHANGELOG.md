@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-11
+
+### Added
+
+- `EnableUMode` and `EnableSMode` parameters passed to the core.
+- `EnableMAxiHp` parameter. Without it the external memory region answers with a bus error and `m_axi_hp_req_o` is tied off. It needs the boot ROM and `OcmOnly` (or no OCM).
+- `SYSFEAT` bits `MAXIHP` `[14]`, `UMODE` `[17]` and `SMODE` `[18]`.
+
 ## [1.0.3] - 2026-10-07
 
 ### Fixed

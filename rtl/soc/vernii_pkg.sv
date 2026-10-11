@@ -49,9 +49,9 @@ localparam logic [15:0] SysIdVernii = 16'h0001;
 // SCB.SYSVER, names the version
 // SCB.SYSVER.RELEASE says whether it is the release commit, or a compatible modified version
 localparam logic [7:0] SysVerMajor   = 8'd1;
-localparam logic [7:0] SysVerMinor   = 8'd0;
-localparam logic [7:0] SysVerPatch   = 8'd3;
-localparam bit         SysVerRelease = 1'b0;
+localparam logic [7:0] SysVerMinor   = 8'd1;
+localparam logic [7:0] SysVerPatch   = 8'd0;
+localparam bit         SysVerRelease = 1'b1;
 
 // SYSCFG block, describes the configuration of the system
 // Allows software to autodetect the system configuration
@@ -72,7 +72,10 @@ typedef struct packed {
     logic        fast_mul;            // Single-cycle multiplier
     logic        zsbl_rom;            // Use built-in boot ROM
     logic        s_axi_gp;            // General-purpose AXI Lite subordinate port present
+    logic        m_axi_hp;            // High-performance AXI manager port present
     logic        halt_on_end;         // Core halts on the end marker (for simulation)
+    logic        u_mode;              // U mode
+    logic        s_mode;              // S mode
 
     // SYSCACHECFG, System Cache Configuration Register
     logic [15:0] line_bytes;          // Bytes in LLC line

@@ -200,9 +200,12 @@ localparam logic [31:0] SysVer = {SysVerMajor, SysVerMinor, SysVerPatch,
 
 // SYSFEAT
 localparam logic [31:0] SysFeat = {
-    15'h0,                  // [31:17]  reserved
+    13'h0,                  // [31:19]  reserved
+    SysCfg.s_mode,          // [18]    SMODE
+    SysCfg.u_mode,          // [17]    UMODE
     SysCfg.halt_on_end,     // [16]    HALTONEND
-    2'h0,                   // [15:14]  reserved
+    1'b0,                   // [15]     reserved
+    SysCfg.m_axi_hp,        // [14]    MAXIHP
     SysCfg.s_axi_gp,        // [13]    SAXIGP
     SysCfg.zsbl_rom,        // [12]    ZSBLROM
     SysCfg.fast_mul,        // [11]    FASTMUL
@@ -222,17 +225,14 @@ localparam logic [31:0] SysFeat = {
 // SYSCACHECFG..SYSBOOTCFG
 localparam logic [31:0] SysCacheCfg = {8'h0, SysCfg.ways, SysCfg.line_bytes};
 
-localparam logic [31:0] SysMmuCfg = {8'h0, SysCfg.pmp_entries,
-                                     SysCfg.dtlb_entries, SysCfg.itlb_entries};
+localparam logic [31:0] SysMmuCfg = {8'h0, SysCfg.pmp_entries, SysCfg.dtlb_entries,
+                                     SysCfg.itlb_entries};
 
-localparam logic [31:0] SysIrqCfg = {16'h0, SysCfg.num_gpio_a_irq,
-                                     SysCfg.num_ext_irq};
+localparam logic [31:0] SysIrqCfg = {16'h0, SysCfg.num_gpio_a_irq, SysCfg.num_ext_irq};
 
-localparam logic [31:0] SysBusCfg = {16'h0, SysCfg.num_s_axi_gp_rules,
-                                     SysCfg.num_m_reg_rules};
+localparam logic [31:0] SysBusCfg = {16'h0, SysCfg.num_s_axi_gp_rules, SysCfg.num_m_reg_rules};
 
-localparam logic [31:0] SysBootCfg = {8'h0, SysCfg.boot_sel_w,
-                                      SysCfg.zsbl_rom_words};
+localparam logic [31:0] SysBootCfg = {8'h0, SysCfg.boot_sel_w, SysCfg.zsbl_rom_words};
 
 /////////////////////
 // Read / Response //

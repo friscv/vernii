@@ -69,7 +69,11 @@ module vernii_soc
     parameter type apb_rsp_t      = vernii_apb_resp_t,
 
     parameter axi_pkg::xbar_rule_32_t [NumMRegRules-1:0]   MRegRules   = '{default: '0},
-    parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules = '{default: '0}
+    parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules = '{default: '0},
+
+    parameter bit          EnableUMode      = 1,
+    parameter bit          EnableSMode      = 1,
+    parameter bit          EnableMAxiHp     = 1'b1
 ) (
     input  logic  clk_i,
     input  logic  rst_ni,
@@ -152,6 +156,12 @@ if (Ways < 1) begin : gen_chk_ways_min
 end
 if (Ways > MaxWays) begin : gen_chk_ways_max
     $fatal(1, "Ways (%0d) must be at most %0d", Ways, MaxWays);
+end
+if (!EnableMAxiHp && !ZsblRomEnable) begin : gen_chk_m_axi_hp_boot
+    $fatal(1, "EnableMAxiHp disabled, without the boot ROM the core resets into external memory");
+end
+if (!EnableMAxiHp && EnableOcm && !OcmOnly) begin : gen_chk_m_axi_hp_llc
+    $fatal(1, "EnableMAxiHp disabled, the LLC caches external memory. Set OcmOnly.");
 end
 
 /////////////////
@@ -289,6 +299,8 @@ friscv #(
     .EnableIsaM         ( EnableIsaM       ),
     .EnableFastMul      ( EnableFastMul    ),
     .EnableIsaA         ( EnableIsaA       ),
+    .EnableUMode        ( EnableUMode      ),
+    .EnableSMode        ( EnableSMode      ),
     .EnforcePmp         ( EnforcePmp       ),
     .PmpEntries         ( PmpEntries       ),
     .PmpUsable          ( PmpEntries       )
@@ -820,7 +832,10 @@ localparam vernii_syscfg_t SysCfg = '{
     fast_mul:           EnableFastMul,
     zsbl_rom:           ZsblRomEnable,
     s_axi_gp:           EnableSAxiGp,
+    m_axi_hp:           EnableMAxiHp,
     halt_on_end:        HaltOnEnd,
+    u_mode:             EnableUMode,
+    s_mode:             EnableSMode,
 
     line_bytes:         16'(LineBytes),
     ways:               EnableOcm ? 8'(Ways) : 8'h0,  // Report 0 if built without OCM
@@ -870,18 +885,32 @@ vernii_scb #(
 // External Memory Interface //
 ///////////////////////////////
 
-friscv_to_axi4_full #(
-    .BurstLen  ( LineBytes / StrbWidth ),
-    .axi_req_t ( axi_req_t             ),
-    .axi_rsp_t ( axi_rsp_t             )
-) i_m_axi_bridge (
-    .clk_i,
-    .rst_ni      ( axi_rst_n      ),
-    .s_req_i     ( ext_req        ),
-    .s_rsp_o     ( ext_rsp        ),
-    .m_axi_req_o ( m_axi_hp_req_o ),
-    .m_axi_rsp_i ( m_axi_hp_rsp_i )
-);
+if (EnableMAxiHp) begin : gen_m_axi_hp
+
+    friscv_to_axi4_full #(
+        .BurstLen  ( LineBytes / StrbWidth ),
+        .axi_req_t ( axi_req_t             ),
+        .axi_rsp_t ( axi_rsp_t             )
+    ) i_m_axi_bridge (
+        .clk_i,
+        .rst_ni      ( axi_rst_n      ),
+        .s_req_i     ( ext_req        ),
+        .s_rsp_o     ( ext_rsp        ),
+        .m_axi_req_o ( m_axi_hp_req_o ),
+        .m_axi_rsp_i ( m_axi_hp_rsp_i )
+    );
+
+end else begin : gen_no_m_axi_hp
+
+    // No external memory, error on access to the external region
+    always_comb begin
+        ext_rsp     = '0;
+        ext_rsp.err = ext_req.en;
+    end
+
+    assign m_axi_hp_req_o = '0;
+
+end
 
 //////////////
 // Debugger //

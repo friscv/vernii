@@ -303,8 +303,14 @@ typedef struct {  // PLIC_TypeDef
 #define SCB_SYSFEAT_ZSBLROM_OFF       ((uint32_t)0x0000000Cu)  // Integrated boot ROM offset
 #define SCB_SYSFEAT_SAXIGP_BM         ((uint32_t)0x00002000u)  // General-purpose AXI Lite subordinate port enabled bit mask
 #define SCB_SYSFEAT_SAXIGP_OFF        ((uint32_t)0x0000000Du)  // General-purpose AXI Lite subordinate port enabled offset
+#define SCB_SYSFEAT_MAXIHP_BM         ((uint32_t)0x00004000u)  // High-performance AXI manager port enabled bit mask
+#define SCB_SYSFEAT_MAXIHP_OFF        ((uint32_t)0x0000000Eu)  // High-performance AXI manager port enabled offset
 #define SCB_SYSFEAT_HALTONEND_BM      ((uint32_t)0x00010000u)  // Core halts on the end marker bit mask
 #define SCB_SYSFEAT_HALTONEND_OFF     ((uint32_t)0x00000010u)  // Core halts on the end marker offset
+#define SCB_SYSFEAT_UMODE_BM          ((uint32_t)0x00020000u)  // U mode bit mask
+#define SCB_SYSFEAT_UMODE_OFF         ((uint32_t)0x00000011u)  // U mode offset
+#define SCB_SYSFEAT_SMODE_BM          ((uint32_t)0x00040000u)  // S mode bit mask
+#define SCB_SYSFEAT_SMODE_OFF         ((uint32_t)0x00000012u)  // S mode offset
 
 // SYSCACHECFG (0x110) reset X
 #define SCB_SYSCACHECFG_LINEBYTES_BM  ((uint32_t)0x0000FFFFu)  // Bytes per LLC line bit mask

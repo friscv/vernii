@@ -42,7 +42,10 @@ enum {
                      SCB_SYSFEAT_ISAM_BM      | \
                      SCB_SYSFEAT_ISAA_BM      | \
                      SCB_SYSFEAT_ZSBLROM_BM   | \
-                     SCB_SYSFEAT_HALTONEND_BM)
+                     SCB_SYSFEAT_MAXIHP_BM    | \
+                     SCB_SYSFEAT_HALTONEND_BM | \
+                     SCB_SYSFEAT_UMODE_BM     | \
+                     SCB_SYSFEAT_SMODE_BM)
 
 // Expected SYSMMUCFG
 #define SIM_SYSMMUCFG ((SIM_ITLB_ENTRIES << SCB_SYSMMUCFG_ITLB_OFF) | \
