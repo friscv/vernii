@@ -8,7 +8,7 @@ Vernii is a minimal Linux-capable 32-bit RISC-V SoC built around the [FRISC-V](h
 
 Vernii is designed to be an extensible platform for future systems featuring coprocessors and other non-CPU modules, and features coherent manager and subordinate AXI interfaces (similar to the PS on Zynq FPGAs or PULP's Croc). It integrates all supporting modules such system would need, including simple I/O and an integrator-configurable boot process.
 
-Vernii is developed as part of the FERICA project, an initiative by the [Faculty of Electrical Engineering and Computing](https://www.fer.unizg.hr/en), [University of Zagreb](https://www.unizg.hr/homepage/).
+Vernii is developed as part of the [FERICA](http://ferica.fer.hr) project, an initiative by the [Faculty of Electrical Engineering and Computing](https://www.fer.unizg.hr/en), [University of Zagreb](https://www.unizg.hr/homepage/).
 
 ## Table of Contents
 
